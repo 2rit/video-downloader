@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Video Downloader</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <div class="logo">VD</div>
+      <h1>Video Downloader</h1>
+      <p class="sub">วาง URL วิดีโอ แล้วดาวน์โหลดไฟล์ที่คุณมีสิทธิ์ดาวน์โหลด</p>
+
+      <form id="downloadForm">
+        <label for="url">Video URL</label>
+        <div class="inputRow">
+          <input id="url" type="url" placeholder="https://..." required autocomplete="off">
+          <button type="button" id="paste">วาง</button>
+        </div>
+
+        <label for="quality">คุณภาพ</label>
+        <select id="quality">
+          <option value="best">ดีที่สุด</option>
+          <option value="1080">สูงสุด 1080p</option>
+          <option value="720">สูงสุด 720p</option>
+          <option value="480">สูงสุด 480p</option>
+        </select>
+
+        <button class="download" type="submit">ดาวน์โหลดวิดีโอ</button>
+      </form>
+
+      <div id="status" class="status"></div>
+
+      <p class="note">
+        หมายเหตุ: การดาวน์โหลดต้องเป็นไปตามสิทธิ์และเงื่อนไขของเว็บไซต์ต้นทาง
+      </p>
+    </section>
+  </main>
+
+<script>
+const form = document.getElementById("downloadForm");
+const url = document.getElementById("url");
+const quality = document.getElementById("quality");
+const status = document.getElementById("status");
+const paste = document.getElementById("paste");
+
+paste.onclick = async () => {
+  try {
+    url.value = await navigator.clipboard.readText();
+    url.focus();
+  } catch {
+    status.textContent = "ไม่สามารถอ่านคลิปบอร์ดได้ กรุณาวางด้วยตนเอง";
+  }
+};
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  status.className = "status loading";
+  status.textContent = "กำลังเตรียมไฟล์ดาวน์โหลด...";
+
+  try {
+    const response = await fetch("/api/download", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        url: url.value.trim(),
+        quality: quality.value
+      })
+    });
+
+    if (!response.ok) {
+      let message = "ดาวน์โหลดไม่สำเร็จ";
+      try {
+        const data = await response.json();
+        message = data.error || message;
+      } catch {}
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = "video-download.mp4";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+
+    status.className = "status success";
+    status.textContent = "ดาวน์โหลดเสร็จแล้ว";
+  } catch (err) {
+    status.className = "status error";
+    status.textContent = err.message;
+  }
+});
+</script>
+</body>
+</html>
